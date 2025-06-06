@@ -62,8 +62,8 @@ def train_model():
     print("Loading datasets...")
     try:
         # Load both datasets
-        df1 = pd.read_csv('Crop_recommendation.csv')
-        df2 = pd.read_csv('Crop_recommendation1.csv')
+        df1 = pd.read_csv('data/Crop_recommendation.csv')
+        df2 = pd.read_csv('data/Crop_recommendation1.csv')
         
         # Combine datasets
         df = pd.concat([df1, df2], ignore_index=True)
@@ -278,4 +278,4 @@ if __name__ == '__main__':
         print(f"Cross-validation scores: {metrics['cv_scores_mean']:.2f} (+/- {metrics['cv_scores_std']:.2f})")
         print("\nClassification Report:")
         print(json.dumps(metrics['classification_report'], indent=2))
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)), debug=True) 
+    app.run(host='127.0.0.1', port=8080, debug=True) 
