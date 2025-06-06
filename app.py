@@ -189,6 +189,9 @@ def predict():
         data = request.get_json()
         logger.info(f"Received prediction request with data: {data}")
         
+        if model is None or scaler is None:
+            raise Exception("Model or scaler not loaded")
+            
         # Create base features
         features = pd.DataFrame([[
             float(data['N']),
@@ -201,23 +204,7 @@ def predict():
         ]], columns=['N', 'P', 'K', 'temperature', 'humidity', 'ph', 'rainfall'])
         
         # Add engineered features
-        features['NP_ratio'] = features['N'] / features['P']
-        features['NK_ratio'] = features['N'] / features['K']
-        features['PK_ratio'] = features['P'] / features['K']
-        features['temperature_squared'] = features['temperature'] ** 2
-        features['humidity_squared'] = features['humidity'] ** 2
-        features['rainfall_squared'] = features['rainfall'] ** 2
-        features['temp_humidity'] = features['temperature'] * features['humidity']
-        features['temp_rainfall'] = features['temperature'] * features['rainfall']
-        
-        # Ensure consistent column order
-        feature_columns = [
-            'N', 'P', 'K', 'temperature', 'humidity', 'ph', 'rainfall',
-            'NP_ratio', 'NK_ratio', 'PK_ratio',
-            'temperature_squared', 'humidity_squared', 'rainfall_squared',
-            'temp_humidity', 'temp_rainfall'
-        ]
-        features = features[feature_columns]
+        features = add_features(features)
         
         # Scale the features
         features_scaled = scaler.transform(features)
@@ -278,4 +265,6 @@ if __name__ == '__main__':
         print(f"Cross-validation scores: {metrics['cv_scores_mean']:.2f} (+/- {metrics['cv_scores_std']:.2f})")
         print("\nClassification Report:")
         print(json.dumps(metrics['classification_report'], indent=2))
-    app.run(host='127.0.0.1', port=8080, debug=True) 
+    # For local development
+    if os.environ.get('VERCEL') is None:
+        app.run(host='127.0.0.1', port=8080, debug=True) 
