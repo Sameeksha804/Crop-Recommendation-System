@@ -258,4 +258,4 @@ if __name__ == '__main__':
         print(f"Cross-validation scores: {metrics['cv_scores_mean']:.2f} (+/- {metrics['cv_scores_std']:.2f})")
         print("\nClassification Report:")
         print(json.dumps(metrics['classification_report'], indent=2))
-    app.run(debug=True) 
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080))) 
