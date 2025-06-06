@@ -9,15 +9,23 @@ from sklearn.metrics import accuracy_score, classification_report, confusion_mat
 import joblib
 import os
 import json
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 CORS(app)
 
 # Load the trained model and scaler
 try:
+    logger.info("Attempting to load model and scaler...")
     model = joblib.load('model/crop_model.pkl')
     scaler = joblib.load('model/scaler.pkl')
-except:
+    logger.info("Model and scaler loaded successfully")
+except Exception as e:
+    logger.error(f"Error loading model: {str(e)}")
     # If model doesn't exist, train a new one
     model = None
     scaler = None
@@ -168,12 +176,18 @@ def train_model():
 
 @app.route('/')
 def home():
-    return render_template('index.html')
+    try:
+        logger.info("Rendering home page...")
+        return render_template('index.html')
+    except Exception as e:
+        logger.error(f"Error rendering home page: {str(e)}")
+        return str(e), 500
 
 @app.route('/predict', methods=['POST'])
 def predict():
     try:
         data = request.get_json()
+        logger.info(f"Received prediction request with data: {data}")
         
         # Create base features
         features = pd.DataFrame([[
@@ -223,6 +237,7 @@ def predict():
             for idx in top_3_idx
         ]
         
+        logger.info(f"Prediction successful: {prediction}")
         return jsonify({
             'status': 'success',
             'predictions': top_3_predictions,
@@ -233,29 +248,34 @@ def predict():
         })
     
     except Exception as e:
+        logger.error(f"Error in prediction: {str(e)}")
         return jsonify({
             'status': 'error',
             'message': str(e)
-        })
+        }), 500
 
 @app.route('/model-metrics')
 def get_model_metrics():
     try:
+        logger.info("Fetching model metrics...")
         with open('model/evaluation_metrics.json', 'r') as f:
             metrics = json.load(f)
         return jsonify(metrics)
-    except FileNotFoundError:
+    except Exception as e:
+        logger.error(f"Error fetching model metrics: {str(e)}")
         return jsonify({
             'status': 'error',
-            'message': 'Model metrics not found. Please train the model first.'
-        })
+            'message': str(e)
+        }), 500
 
 if __name__ == '__main__':
     if model is None:
+        logger.info("Training new model...")
         metrics = train_model()
+        logger.info("Model training completed")
         print("\nModel Evaluation Metrics:")
         print(f"Accuracy: {metrics['accuracy']:.2f}")
         print(f"Cross-validation scores: {metrics['cv_scores_mean']:.2f} (+/- {metrics['cv_scores_std']:.2f})")
         print("\nClassification Report:")
         print(json.dumps(metrics['classification_report'], indent=2))
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080))) 
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)), debug=True) 
