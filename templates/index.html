@@ -249,17 +249,57 @@
             const resultContainer = document.getElementById('resultContainer');
             const resultContent = document.getElementById('resultContent');
             
+            // Validate form inputs
+            const inputs = {
+                N: { value: document.getElementById('N').value, min: 0, max: 140 },
+                P: { value: document.getElementById('P').value, min: 0, max: 140 },
+                K: { value: document.getElementById('K').value, min: 0, max: 205 },
+                temperature: { value: document.getElementById('temperature').value, min: 8, max: 44 },
+                humidity: { value: document.getElementById('humidity').value, min: 14, max: 100 },
+                ph: { value: document.getElementById('ph').value, min: 3.5, max: 10 },
+                rainfall: { value: document.getElementById('rainfall').value, min: 20, max: 300 }
+            };
+
+            // Check for empty values
+            for (const [key, input] of Object.entries(inputs)) {
+                if (!input.value) {
+                    resultContent.innerHTML = `
+                        <div class="alert alert-danger">
+                            <h4>Validation Error</h4>
+                            <p>Please fill in all fields.</p>
+                        </div>
+                    `;
+                    resultContainer.style.display = 'block';
+                    return;
+                }
+            }
+
+            // Validate ranges
+            for (const [key, input] of Object.entries(inputs)) {
+                const value = parseFloat(input.value);
+                if (isNaN(value) || value < input.min || value > input.max) {
+                    resultContent.innerHTML = `
+                        <div class="alert alert-danger">
+                            <h4>Validation Error</h4>
+                            <p>${key} must be between ${input.min} and ${input.max}</p>
+                        </div>
+                    `;
+                    resultContainer.style.display = 'block';
+                    return;
+                }
+            }
+            
             loading.style.display = 'block';
             resultContainer.style.display = 'none';
             
             const formData = {
-                N: document.getElementById('N').value,
-                P: document.getElementById('P').value,
-                K: document.getElementById('K').value,
-                temperature: document.getElementById('temperature').value,
-                humidity: document.getElementById('humidity').value,
-                ph: document.getElementById('ph').value,
-                rainfall: document.getElementById('rainfall').value
+                N: parseFloat(inputs.N.value),
+                P: parseFloat(inputs.P.value),
+                K: parseFloat(inputs.K.value),
+                temperature: parseFloat(inputs.temperature.value),
+                humidity: parseFloat(inputs.humidity.value),
+                ph: parseFloat(inputs.ph.value),
+                rainfall: parseFloat(inputs.rainfall.value)
             };
             
             try {
@@ -291,23 +331,25 @@
                     resultContent.innerHTML = `
                         <div class="alert alert-danger">
                             <h4>Error</h4>
-                            <p>${data.message}</p>
+                            <p>${data.message || 'An error occurred while processing your request.'}</p>
                         </div>
                     `;
                 }
                 
                 resultContainer.style.display = 'block';
             } catch (error) {
+                console.error('Prediction error:', error);
                 resultContent.innerHTML = `
                     <div class="alert alert-danger">
                         <h4>Error</h4>
-                        <p>An error occurred while processing your request.</p>
+                        <p>An error occurred while processing your request. Please try again.</p>
+                        <small>${error.message}</small>
                     </div>
                 `;
                 resultContainer.style.display = 'block';
+            } finally {
+                loading.style.display = 'none';
             }
-            
-            loading.style.display = 'none';
         });
     </script>
 </body>
