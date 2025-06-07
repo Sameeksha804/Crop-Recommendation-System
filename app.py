@@ -21,42 +21,72 @@ CORS(app)
 # Load the trained model and scaler
 try:
     logger.info("Attempting to load model and scaler...")
-    model = joblib.load('model/crop_model.pkl')
-    scaler = joblib.load('model/scaler.pkl')
+    model_path = os.path.join('model', 'crop_model.pkl')
+    scaler_path = os.path.join('model', 'scaler.pkl')
+    
+    if not os.path.exists(model_path):
+        logger.error(f"Model file not found at {model_path}")
+        raise FileNotFoundError(f"Model file not found at {model_path}")
+    if not os.path.exists(scaler_path):
+        logger.error(f"Scaler file not found at {scaler_path}")
+        raise FileNotFoundError(f"Scaler file not found at {scaler_path}")
+        
+    model = joblib.load(model_path)
+    scaler = joblib.load(scaler_path)
+    
+    # Verify model and scaler are loaded correctly
+    if model is None:
+        raise ValueError("Model loaded but is None")
+    if scaler is None:
+        raise ValueError("Scaler loaded but is None")
+        
     logger.info("Model and scaler loaded successfully")
+    logger.info(f"Model type: {type(model)}")
+    logger.info(f"Scaler type: {type(scaler)}")
 except Exception as e:
     logger.error(f"Error loading model: {str(e)}")
+    logger.exception("Full traceback:")
     # If model doesn't exist, train a new one
     model = None
     scaler = None
 
 def add_features(df):
-    # Create a copy to avoid modifying the original dataframe
-    df = df.copy()
-    
-    # Add interaction features
-    df['NP_ratio'] = df['N'] / df['P']
-    df['NK_ratio'] = df['N'] / df['K']
-    df['PK_ratio'] = df['P'] / df['K']
-    
-    # Add polynomial features for important columns
-    df['temperature_squared'] = df['temperature'] ** 2
-    df['humidity_squared'] = df['humidity'] ** 2
-    df['rainfall_squared'] = df['rainfall'] ** 2
-    
-    # Add combined features
-    df['temp_humidity'] = df['temperature'] * df['humidity']
-    df['temp_rainfall'] = df['temperature'] * df['rainfall']
-    
-    # Ensure consistent column order
-    feature_columns = [
-        'N', 'P', 'K', 'temperature', 'humidity', 'ph', 'rainfall',
-        'NP_ratio', 'NK_ratio', 'PK_ratio',
-        'temperature_squared', 'humidity_squared', 'rainfall_squared',
-        'temp_humidity', 'temp_rainfall'
-    ]
-    
-    return df[feature_columns]
+    try:
+        # Create a copy to avoid modifying the original dataframe
+        df = df.copy()
+        
+        # Add interaction features
+        df['NP_ratio'] = df['N'] / df['P']
+        df['NK_ratio'] = df['N'] / df['K']
+        df['PK_ratio'] = df['P'] / df['K']
+        
+        # Add polynomial features for important columns
+        df['temperature_squared'] = df['temperature'] ** 2
+        df['humidity_squared'] = df['humidity'] ** 2
+        df['rainfall_squared'] = df['rainfall'] ** 2
+        
+        # Add combined features
+        df['temp_humidity'] = df['temperature'] * df['humidity']
+        df['temp_rainfall'] = df['temperature'] * df['rainfall']
+        
+        # Ensure consistent column order
+        feature_columns = [
+            'N', 'P', 'K', 'temperature', 'humidity', 'ph', 'rainfall',
+            'NP_ratio', 'NK_ratio', 'PK_ratio',
+            'temperature_squared', 'humidity_squared', 'rainfall_squared',
+            'temp_humidity', 'temp_rainfall'
+        ]
+        
+        # Verify all required columns are present
+        missing_columns = [col for col in feature_columns if col not in df.columns]
+        if missing_columns:
+            raise ValueError(f"Missing required columns: {missing_columns}")
+            
+        return df[feature_columns]
+    except Exception as e:
+        logger.error(f"Error in add_features: {str(e)}")
+        logger.exception("Full traceback:")
+        raise
 
 def train_model():
     print("Loading datasets...")
