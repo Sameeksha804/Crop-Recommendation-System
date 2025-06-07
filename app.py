@@ -189,19 +189,31 @@ def predict():
         # Log the raw request data
         logger.info(f"Raw request data: {request.get_data()}")
         
-        data = request.get_json()
-        if data is None:
-            logger.error("No JSON data received in request")
+        # Check if request has JSON data
+        if not request.is_json:
+            logger.error("Request does not contain JSON data")
             return jsonify({
                 'status': 'error',
-                'message': 'No JSON data received'
+                'message': 'Request must contain JSON data'
             }), 400
-            
+        
+        data = request.get_json()
         logger.info(f"Received prediction request with data: {data}")
         
-        if model is None or scaler is None:
-            logger.error("Model or scaler not loaded")
-            raise Exception("Model or scaler not loaded")
+        # Check if model and scaler are loaded
+        if model is None:
+            logger.error("Model is not loaded")
+            return jsonify({
+                'status': 'error',
+                'message': 'Model is not loaded. Please try again later.'
+            }), 500
+            
+        if scaler is None:
+            logger.error("Scaler is not loaded")
+            return jsonify({
+                'status': 'error',
+                'message': 'Scaler is not loaded. Please try again later.'
+            }), 500
             
         # Validate input data
         required_fields = ['N', 'P', 'K', 'temperature', 'humidity', 'ph', 'rainfall']
@@ -221,29 +233,29 @@ def predict():
                         'status': 'error',
                         'message': f"{field} must be between 0 and 140"
                     }), 400
-                elif field == 'temperature' and (value < 0 or value > 50):
+                elif field == 'temperature' and (value < 8 or value > 44):
                     logger.error(f"Invalid range for temperature: {value}")
                     return jsonify({
                         'status': 'error',
-                        'message': "Temperature must be between 0 and 50"
+                        'message': "Temperature must be between 8 and 44"
                     }), 400
-                elif field == 'humidity' and (value < 0 or value > 100):
+                elif field == 'humidity' and (value < 14 or value > 100):
                     logger.error(f"Invalid range for humidity: {value}")
                     return jsonify({
                         'status': 'error',
-                        'message': "Humidity must be between 0 and 100"
+                        'message': "Humidity must be between 14 and 100"
                     }), 400
-                elif field == 'ph' and (value < 0 or value > 14):
+                elif field == 'ph' and (value < 3.5 or value > 10):
                     logger.error(f"Invalid range for pH: {value}")
                     return jsonify({
                         'status': 'error',
-                        'message': "pH must be between 0 and 14"
+                        'message': "pH must be between 3.5 and 10"
                     }), 400
-                elif field == 'rainfall' and (value < 0 or value > 300):
+                elif field == 'rainfall' and (value < 20 or value > 300):
                     logger.error(f"Invalid range for rainfall: {value}")
                     return jsonify({
                         'status': 'error',
-                        'message': "Rainfall must be between 0 and 300"
+                        'message': "Rainfall must be between 20 and 300"
                     }), 400
             except ValueError:
                 logger.error(f"Invalid value for {field}: {data[field]}")
@@ -320,6 +332,7 @@ def predict():
             })
         except Exception as e:
             logger.error(f"Error making prediction: {str(e)}")
+            logger.exception("Full traceback:")
             return jsonify({
                 'status': 'error',
                 'message': f"Error making prediction: {str(e)}"
