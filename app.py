@@ -186,59 +186,151 @@ def home():
 @app.route('/predict', methods=['POST'])
 def predict():
     try:
+        # Log the raw request data
+        logger.info(f"Raw request data: {request.get_data()}")
+        
         data = request.get_json()
+        if data is None:
+            logger.error("No JSON data received in request")
+            return jsonify({
+                'status': 'error',
+                'message': 'No JSON data received'
+            }), 400
+            
         logger.info(f"Received prediction request with data: {data}")
         
         if model is None or scaler is None:
+            logger.error("Model or scaler not loaded")
             raise Exception("Model or scaler not loaded")
             
+        # Validate input data
+        required_fields = ['N', 'P', 'K', 'temperature', 'humidity', 'ph', 'rainfall']
+        for field in required_fields:
+            if field not in data:
+                logger.error(f"Missing required field: {field}")
+                return jsonify({
+                    'status': 'error',
+                    'message': f"Missing required field: {field}"
+                }), 400
+            try:
+                value = float(data[field])
+                # Add range validation
+                if field in ['N', 'P', 'K'] and (value < 0 or value > 140):
+                    logger.error(f"Invalid range for {field}: {value}")
+                    return jsonify({
+                        'status': 'error',
+                        'message': f"{field} must be between 0 and 140"
+                    }), 400
+                elif field == 'temperature' and (value < 0 or value > 50):
+                    logger.error(f"Invalid range for temperature: {value}")
+                    return jsonify({
+                        'status': 'error',
+                        'message': "Temperature must be between 0 and 50"
+                    }), 400
+                elif field == 'humidity' and (value < 0 or value > 100):
+                    logger.error(f"Invalid range for humidity: {value}")
+                    return jsonify({
+                        'status': 'error',
+                        'message': "Humidity must be between 0 and 100"
+                    }), 400
+                elif field == 'ph' and (value < 0 or value > 14):
+                    logger.error(f"Invalid range for pH: {value}")
+                    return jsonify({
+                        'status': 'error',
+                        'message': "pH must be between 0 and 14"
+                    }), 400
+                elif field == 'rainfall' and (value < 0 or value > 300):
+                    logger.error(f"Invalid range for rainfall: {value}")
+                    return jsonify({
+                        'status': 'error',
+                        'message': "Rainfall must be between 0 and 300"
+                    }), 400
+            except ValueError:
+                logger.error(f"Invalid value for {field}: {data[field]}")
+                return jsonify({
+                    'status': 'error',
+                    'message': f"Invalid value for {field}: {data[field]}"
+                }), 400
+        
         # Create base features
-        features = pd.DataFrame([[
-            float(data['N']),
-            float(data['P']),
-            float(data['K']),
-            float(data['temperature']),
-            float(data['humidity']),
-            float(data['ph']),
-            float(data['rainfall'])
-        ]], columns=['N', 'P', 'K', 'temperature', 'humidity', 'ph', 'rainfall'])
+        try:
+            features = pd.DataFrame([[
+                float(data['N']),
+                float(data['P']),
+                float(data['K']),
+                float(data['temperature']),
+                float(data['humidity']),
+                float(data['ph']),
+                float(data['rainfall'])
+            ]], columns=['N', 'P', 'K', 'temperature', 'humidity', 'ph', 'rainfall'])
+            logger.info("Created features DataFrame")
+        except Exception as e:
+            logger.error(f"Error creating features DataFrame: {str(e)}")
+            return jsonify({
+                'status': 'error',
+                'message': f"Error processing input data: {str(e)}"
+            }), 400
         
         # Add engineered features
-        features = add_features(features)
+        try:
+            features = add_features(features)
+            logger.info("Added engineered features")
+        except Exception as e:
+            logger.error(f"Error adding engineered features: {str(e)}")
+            return jsonify({
+                'status': 'error',
+                'message': f"Error processing features: {str(e)}"
+            }), 500
         
         # Scale the features
-        features_scaled = scaler.transform(features)
+        try:
+            features_scaled = scaler.transform(features)
+            logger.info("Scaled features")
+        except Exception as e:
+            logger.error(f"Error scaling features: {str(e)}")
+            return jsonify({
+                'status': 'error',
+                'message': f"Error scaling features: {str(e)}"
+            }), 500
         
         # Make prediction
-        prediction = model.predict(features_scaled)[0]
-        probabilities = model.predict_proba(features_scaled)[0]
-        max_probability = max(probabilities)
-        
-        # Get top 3 predictions
-        top_3_idx = np.argsort(probabilities)[-3:][::-1]
-        top_3_predictions = [
-            {
-                'crop': model.classes_[idx],
-                'confidence': float(probabilities[idx])
-            }
-            for idx in top_3_idx
-        ]
-        
-        logger.info(f"Prediction successful: {prediction}")
-        return jsonify({
-            'status': 'success',
-            'predictions': top_3_predictions,
-            'best_match': {
-                'crop': prediction,
-                'confidence': float(max_probability)
-            }
-        })
+        try:
+            prediction = model.predict(features_scaled)[0]
+            probabilities = model.predict_proba(features_scaled)[0]
+            max_probability = max(probabilities)
+            
+            # Get top 3 predictions
+            top_3_idx = np.argsort(probabilities)[-3:][::-1]
+            top_3_predictions = [
+                {
+                    'crop': model.classes_[idx],
+                    'confidence': float(probabilities[idx])
+                }
+                for idx in top_3_idx
+            ]
+            
+            logger.info(f"Prediction successful: {prediction}")
+            return jsonify({
+                'status': 'success',
+                'predictions': top_3_predictions,
+                'best_match': {
+                    'crop': prediction,
+                    'confidence': float(max_probability)
+                }
+            })
+        except Exception as e:
+            logger.error(f"Error making prediction: {str(e)}")
+            return jsonify({
+                'status': 'error',
+                'message': f"Error making prediction: {str(e)}"
+            }), 500
     
     except Exception as e:
-        logger.error(f"Error in prediction: {str(e)}")
+        logger.error(f"Unexpected error in prediction: {str(e)}")
+        logger.exception("Full traceback:")
         return jsonify({
             'status': 'error',
-            'message': str(e)
+            'message': f"An unexpected error occurred: {str(e)}"
         }), 500
 
 @app.route('/model-metrics')
