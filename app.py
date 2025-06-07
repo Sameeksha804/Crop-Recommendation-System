@@ -10,14 +10,31 @@ import joblib
 import os
 import json
 import logging
+import traceback
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-# Configure CORS to allow requests from any origin
-CORS(app, resources={r"/*": {"origins": "*"}})
+# Configure CORS with more specific settings
+CORS(app, resources={
+    r"/*": {
+        "origins": "*",
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization", "Accept"],
+        "expose_headers": ["Content-Type", "Authorization"],
+        "supports_credentials": True,
+        "max_age": 600
+    }
+})
+
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    return response
 
 # Load the trained model and scaler
 def load_model_and_scaler():
@@ -232,8 +249,11 @@ def home():
         logger.error(f"Error rendering home page: {str(e)}")
         return str(e), 500
 
-@app.route('/predict', methods=['POST'])
+@app.route('/predict', methods=['POST', 'OPTIONS'])
 def predict():
+    if request.method == 'OPTIONS':
+        return '', 200
+        
     try:
         # Check if model and scaler are loaded
         if model is None or scaler is None:
@@ -241,7 +261,7 @@ def predict():
             return jsonify({
                 'status': 'error',
                 'message': 'Model is not ready. Please try again in a few moments.'
-            }), 503  # Service Unavailable
+            }), 503
 
         # Log the raw request data
         logger.info(f"Raw request data: {request.get_data()}")
@@ -386,10 +406,11 @@ def predict():
     
     except Exception as e:
         logger.error(f"Unexpected error in prediction: {str(e)}")
-        logger.exception("Full traceback:")
+        logger.error(f"Full traceback: {traceback.format_exc()}")
         return jsonify({
             'status': 'error',
-            'message': f"An unexpected error occurred: {str(e)}"
+            'message': f"An unexpected error occurred: {str(e)}",
+            'details': traceback.format_exc()
         }), 500
 
 @app.route('/model-metrics')

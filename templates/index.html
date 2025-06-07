@@ -309,11 +309,13 @@
                         'Content-Type': 'application/json',
                         'Accept': 'application/json'
                     },
-                    body: JSON.stringify(formData)
+                    body: JSON.stringify(formData),
+                    credentials: 'include'
                 });
                 
                 if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
                 }
                 
                 const data = await response.json();
@@ -337,6 +339,7 @@
                         <div class="alert alert-danger">
                             <h4>Error</h4>
                             <p>${data.message || 'An error occurred while processing your request.'}</p>
+                            ${data.details ? `<small>Technical details: ${data.details}</small>` : ''}
                         </div>
                     `;
                 }
@@ -349,6 +352,9 @@
                         <h4>Error</h4>
                         <p>Failed to connect to the server. Please try again later.</p>
                         <small>Error details: ${error.message}</small>
+                        <div class="mt-3">
+                            <button class="btn btn-primary btn-sm" onclick="retryPrediction()">Retry</button>
+                        </div>
                     </div>
                 `;
                 resultContainer.style.display = 'block';
@@ -356,6 +362,12 @@
                 loading.style.display = 'none';
             }
         });
+
+        // Add retry function
+        async function retryPrediction() {
+            const form = document.getElementById('predictionForm');
+            form.dispatchEvent(new Event('submit'));
+        }
     </script>
 </body>
 </html> 
