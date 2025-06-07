@@ -19,36 +19,54 @@ app = Flask(__name__)
 CORS(app)
 
 # Load the trained model and scaler
-try:
-    logger.info("Attempting to load model and scaler...")
-    model_path = os.path.join('model', 'crop_model.pkl')
-    scaler_path = os.path.join('model', 'scaler.pkl')
-    
-    if not os.path.exists(model_path):
-        logger.error(f"Model file not found at {model_path}")
-        raise FileNotFoundError(f"Model file not found at {model_path}")
-    if not os.path.exists(scaler_path):
-        logger.error(f"Scaler file not found at {scaler_path}")
-        raise FileNotFoundError(f"Scaler file not found at {scaler_path}")
+def load_model_and_scaler():
+    try:
+        logger.info("Attempting to load model and scaler...")
+        model_path = os.path.join('model', 'crop_model.pkl')
+        scaler_path = os.path.join('model', 'scaler.pkl')
         
-    model = joblib.load(model_path)
-    scaler = joblib.load(scaler_path)
-    
-    # Verify model and scaler are loaded correctly
-    if model is None:
-        raise ValueError("Model loaded but is None")
-    if scaler is None:
-        raise ValueError("Scaler loaded but is None")
+        if not os.path.exists(model_path):
+            logger.error(f"Model file not found at {model_path}")
+            return None, None
+        if not os.path.exists(scaler_path):
+            logger.error(f"Scaler file not found at {scaler_path}")
+            return None, None
+            
+        model = joblib.load(model_path)
+        scaler = joblib.load(scaler_path)
         
-    logger.info("Model and scaler loaded successfully")
-    logger.info(f"Model type: {type(model)}")
-    logger.info(f"Scaler type: {type(scaler)}")
-except Exception as e:
-    logger.error(f"Error loading model: {str(e)}")
-    logger.exception("Full traceback:")
-    # If model doesn't exist, train a new one
-    model = None
-    scaler = None
+        # Verify model and scaler are loaded correctly
+        if model is None:
+            logger.error("Model loaded but is None")
+            return None, None
+        if scaler is None:
+            logger.error("Scaler loaded but is None")
+            return None, None
+            
+        logger.info("Model and scaler loaded successfully")
+        logger.info(f"Model type: {type(model)}")
+        logger.info(f"Scaler type: {type(scaler)}")
+        return model, scaler
+    except Exception as e:
+        logger.error(f"Error loading model: {str(e)}")
+        logger.exception("Full traceback:")
+        return None, None
+
+# Initialize model and scaler
+model, scaler = load_model_and_scaler()
+
+# If model is not loaded, train a new one
+if model is None or scaler is None:
+    logger.info("Model or scaler not found, training new model...")
+    try:
+        metrics = train_model()
+        model, scaler = load_model_and_scaler()
+        if model is None or scaler is None:
+            raise Exception("Failed to load model after training")
+        logger.info("New model trained and loaded successfully")
+    except Exception as e:
+        logger.error(f"Error training new model: {str(e)}")
+        logger.exception("Full traceback:")
 
 def add_features(df):
     try:
@@ -216,6 +234,14 @@ def home():
 @app.route('/predict', methods=['POST'])
 def predict():
     try:
+        # Check if model and scaler are loaded
+        if model is None or scaler is None:
+            logger.error("Model or scaler not loaded")
+            return jsonify({
+                'status': 'error',
+                'message': 'Model is not ready. Please try again in a few moments.'
+            }), 503  # Service Unavailable
+
         # Log the raw request data
         logger.info(f"Raw request data: {request.get_data()}")
         
@@ -230,21 +256,6 @@ def predict():
         data = request.get_json()
         logger.info(f"Received prediction request with data: {data}")
         
-        # Check if model and scaler are loaded
-        if model is None:
-            logger.error("Model is not loaded")
-            return jsonify({
-                'status': 'error',
-                'message': 'Model is not loaded. Please try again later.'
-            }), 500
-            
-        if scaler is None:
-            logger.error("Scaler is not loaded")
-            return jsonify({
-                'status': 'error',
-                'message': 'Scaler is not loaded. Please try again later.'
-            }), 500
-            
         # Validate input data
         required_fields = ['N', 'P', 'K', 'temperature', 'humidity', 'ph', 'rainfall']
         for field in required_fields:
@@ -256,24 +267,24 @@ def predict():
                 }), 400
             try:
                 value = float(data[field])
-                # Add range validation
+                # Add range validation with more detailed error messages
                 if field in ['N', 'P', 'K'] and (value < 0 or value > 140):
                     logger.error(f"Invalid range for {field}: {value}")
                     return jsonify({
                         'status': 'error',
-                        'message': f"{field} must be between 0 and 140"
+                        'message': f"{field} must be between 0 and 140 kg/ha"
                     }), 400
                 elif field == 'temperature' and (value < 8 or value > 44):
                     logger.error(f"Invalid range for temperature: {value}")
                     return jsonify({
                         'status': 'error',
-                        'message': "Temperature must be between 8 and 44"
+                        'message': "Temperature must be between 8 and 44°C"
                     }), 400
                 elif field == 'humidity' and (value < 14 or value > 100):
                     logger.error(f"Invalid range for humidity: {value}")
                     return jsonify({
                         'status': 'error',
-                        'message': "Humidity must be between 14 and 100"
+                        'message': "Humidity must be between 14 and 100%"
                     }), 400
                 elif field == 'ph' and (value < 3.5 or value > 10):
                     logger.error(f"Invalid range for pH: {value}")
@@ -285,13 +296,13 @@ def predict():
                     logger.error(f"Invalid range for rainfall: {value}")
                     return jsonify({
                         'status': 'error',
-                        'message': "Rainfall must be between 20 and 300"
+                        'message': "Rainfall must be between 20 and 300 mm"
                     }), 400
-            except ValueError:
-                logger.error(f"Invalid value for {field}: {data[field]}")
+            except ValueError as e:
+                logger.error(f"Invalid value for {field}: {data[field]}, Error: {str(e)}")
                 return jsonify({
                     'status': 'error',
-                    'message': f"Invalid value for {field}: {data[field]}"
+                    'message': f"Invalid value for {field}: {data[field]}. Please provide a valid number."
                 }), 400
         
         # Create base features
@@ -308,6 +319,7 @@ def predict():
             logger.info(f"Created features DataFrame: {features.to_dict()}")
         except Exception as e:
             logger.error(f"Error creating features DataFrame: {str(e)}")
+            logger.exception("Full traceback:")
             return jsonify({
                 'status': 'error',
                 'message': f"Error processing input data: {str(e)}"
@@ -394,15 +406,6 @@ def get_model_metrics():
         }), 500
 
 if __name__ == '__main__':
-    if model is None:
-        logger.info("Training new model...")
-        metrics = train_model()
-        logger.info("Model training completed")
-        print("\nModel Evaluation Metrics:")
-        print(f"Accuracy: {metrics['accuracy']:.2f}")
-        print(f"Cross-validation scores: {metrics['cv_scores_mean']:.2f} (+/- {metrics['cv_scores_std']:.2f})")
-        print("\nClassification Report:")
-        print(json.dumps(metrics['classification_report'], indent=2))
     # For local development
     if os.environ.get('VERCEL') is None:
         app.run(host='127.0.0.1', port=8080, debug=True) 
