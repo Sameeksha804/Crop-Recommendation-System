@@ -8,4 +8,8 @@ data/
 venv/
 .env
 *.pkl
-model/ 
+model/
+tests/
+*.ipynb
+*.md
+!README.md 
