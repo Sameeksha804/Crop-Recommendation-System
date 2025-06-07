@@ -275,7 +275,7 @@ def predict():
                 float(data['ph']),
                 float(data['rainfall'])
             ]], columns=['N', 'P', 'K', 'temperature', 'humidity', 'ph', 'rainfall'])
-            logger.info("Created features DataFrame")
+            logger.info(f"Created features DataFrame: {features.to_dict()}")
         except Exception as e:
             logger.error(f"Error creating features DataFrame: {str(e)}")
             return jsonify({
@@ -286,9 +286,10 @@ def predict():
         # Add engineered features
         try:
             features = add_features(features)
-            logger.info("Added engineered features")
+            logger.info(f"Added engineered features: {features.to_dict()}")
         except Exception as e:
             logger.error(f"Error adding engineered features: {str(e)}")
+            logger.exception("Full traceback:")
             return jsonify({
                 'status': 'error',
                 'message': f"Error processing features: {str(e)}"
@@ -297,9 +298,10 @@ def predict():
         # Scale the features
         try:
             features_scaled = scaler.transform(features)
-            logger.info("Scaled features")
+            logger.info(f"Scaled features shape: {features_scaled.shape}")
         except Exception as e:
             logger.error(f"Error scaling features: {str(e)}")
+            logger.exception("Full traceback:")
             return jsonify({
                 'status': 'error',
                 'message': f"Error scaling features: {str(e)}"
@@ -322,6 +324,7 @@ def predict():
             ]
             
             logger.info(f"Prediction successful: {prediction}")
+            logger.info(f"Top 3 predictions: {top_3_predictions}")
             return jsonify({
                 'status': 'success',
                 'predictions': top_3_predictions,
