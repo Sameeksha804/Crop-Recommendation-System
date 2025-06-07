@@ -306,10 +306,15 @@
                 const response = await fetch('/predict', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
                     },
                     body: JSON.stringify(formData)
                 });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
                 
                 const data = await response.json();
                 
@@ -342,8 +347,8 @@
                 resultContent.innerHTML = `
                     <div class="alert alert-danger">
                         <h4>Error</h4>
-                        <p>An error occurred while processing your request. Please try again.</p>
-                        <small>${error.message}</small>
+                        <p>Failed to connect to the server. Please try again later.</p>
+                        <small>Error details: ${error.message}</small>
                     </div>
                 `;
                 resultContainer.style.display = 'block';

@@ -16,7 +16,8 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-CORS(app)
+# Configure CORS to allow requests from any origin
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 # Load the trained model and scaler
 def load_model_and_scaler():
