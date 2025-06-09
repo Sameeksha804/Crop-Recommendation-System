@@ -17,10 +17,11 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-# Configure CORS with more specific settings
+
+# Configure CORS
 CORS(app, resources={
     r"/*": {
-        "origins": "*",  # Allow all origins for development
+        "origins": ["*"],
         "methods": ["GET", "POST", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization", "Accept"],
         "expose_headers": ["Content-Type", "Authorization"],
@@ -425,4 +426,7 @@ def get_model_metrics():
 if __name__ == '__main__':
     # For local development
     if os.environ.get('VERCEL') is None:
-        app.run(host='0.0.0.0', port=8080, debug=True) 
+        app.run(host='0.0.0.0', port=8080, debug=True)
+    else:
+        # For Vercel deployment
+        app.run() 
