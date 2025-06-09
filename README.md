@@ -1,6 +1,6 @@
 # Crop Recommendation System 🌱
 
-A machine learning-based web application that recommends the most suitable crops to grow based on various soil and climate parameters.
+A machine learning-based web application that recommends the most suitable crops to grow based on various soil and climate parameters
 
 ## Features 🌟
 
