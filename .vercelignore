@@ -1,15 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Local development
+.env
+.env.local
+
+# Keep model files
+!model/*.pkl
+!model/*.json
+
 .git
 .gitignore
-__pycache__
-*.pyc
 data/
 *.csv
-*.log
-venv/
-.env
-*.pkl
-model/
-tests/
-*.ipynb
 *.md
 !README.md 

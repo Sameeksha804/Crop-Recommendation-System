@@ -6,7 +6,7 @@
             "use": "@vercel/python",
             "config": {
                 "maxLambdaSize": "250mb",
-                "runtime": "python3.10"
+                "runtime": "python3.9"
             }
         }
     ],
@@ -22,6 +22,6 @@
     ],
     "env": {
         "PYTHONUNBUFFERED": "1",
-        "PYTHON_VERSION": "3.10"
+        "PYTHON_VERSION": "3.9"
     }
 } 
