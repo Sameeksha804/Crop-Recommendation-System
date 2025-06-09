@@ -424,9 +424,5 @@ def get_model_metrics():
         }), 500
 
 if __name__ == '__main__':
-    # For local development
-    if os.environ.get('VERCEL') is None:
-        app.run(host='0.0.0.0', port=8080, debug=True)
-    else:
-        # For Vercel deployment
-        app.run() 
+    # Run the Flask application
+    app.run(host='0.0.0.0', port=8080, debug=True) 
