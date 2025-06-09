@@ -20,7 +20,7 @@ app = Flask(__name__)
 # Configure CORS with more specific settings
 CORS(app, resources={
     r"/*": {
-        "origins": "*",
+        "origins": "*",  # Allow all origins for development
         "methods": ["GET", "POST", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization", "Accept"],
         "expose_headers": ["Content-Type", "Authorization"],
@@ -34,57 +34,8 @@ def after_request(response):
     response.headers.add('Access-Control-Allow-Origin', '*')
     response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
     response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    response.headers.add('Access-Control-Allow-Credentials', 'true')
     return response
-
-# Load the trained model and scaler
-def load_model_and_scaler():
-    try:
-        logger.info("Attempting to load model and scaler...")
-        model_path = os.path.join('model', 'crop_model.pkl')
-        scaler_path = os.path.join('model', 'scaler.pkl')
-        
-        if not os.path.exists(model_path):
-            logger.error(f"Model file not found at {model_path}")
-            return None, None
-        if not os.path.exists(scaler_path):
-            logger.error(f"Scaler file not found at {scaler_path}")
-            return None, None
-            
-        model = joblib.load(model_path)
-        scaler = joblib.load(scaler_path)
-        
-        # Verify model and scaler are loaded correctly
-        if model is None:
-            logger.error("Model loaded but is None")
-            return None, None
-        if scaler is None:
-            logger.error("Scaler loaded but is None")
-            return None, None
-            
-        logger.info("Model and scaler loaded successfully")
-        logger.info(f"Model type: {type(model)}")
-        logger.info(f"Scaler type: {type(scaler)}")
-        return model, scaler
-    except Exception as e:
-        logger.error(f"Error loading model: {str(e)}")
-        logger.exception("Full traceback:")
-        return None, None
-
-# Initialize model and scaler
-model, scaler = load_model_and_scaler()
-
-# If model is not loaded, train a new one
-if model is None or scaler is None:
-    logger.info("Model or scaler not found, training new model...")
-    try:
-        metrics = train_model()
-        model, scaler = load_model_and_scaler()
-        if model is None or scaler is None:
-            raise Exception("Failed to load model after training")
-        logger.info("New model trained and loaded successfully")
-    except Exception as e:
-        logger.error(f"Error training new model: {str(e)}")
-        logger.exception("Full traceback:")
 
 def add_features(df):
     try:
@@ -125,24 +76,17 @@ def add_features(df):
         raise
 
 def train_model():
-    print("Loading datasets...")
+    print("Loading dataset...")
     try:
-        # Load both datasets
-        df1 = pd.read_csv('data/Crop_recommendation.csv')
-        df2 = pd.read_csv('data/Crop_recommendation1.csv')
+        # Load dataset
+        df = pd.read_csv('data/Crop_recommendation.csv')
         
-        # Combine datasets
-        df = pd.concat([df1, df2], ignore_index=True)
-        
-        # Remove any duplicate entries
-        df = df.drop_duplicates()
-        
-        print(f"Combined dataset loaded successfully with {len(df)} samples")
+        print(f"Dataset loaded successfully with {len(df)} samples")
         print(f"Number of unique crops: {df['label'].nunique()}")
         print("\nCrop distribution:")
         print(df['label'].value_counts())
     except FileNotFoundError as e:
-        print(f"Error loading datasets: {str(e)}")
+        print(f"Error loading dataset: {str(e)}")
         return None
     
     # Add engineered features
@@ -239,6 +183,57 @@ def train_model():
         print(f"{feature}: {importance:.4f}")
     
     return evaluation_metrics
+
+def load_model_and_scaler():
+    try:
+        logger.info("Attempting to load model and scaler...")
+        model_path = os.path.join('model', 'crop_model.pkl')
+        scaler_path = os.path.join('model', 'scaler.pkl')
+        
+        if not os.path.exists(model_path) or not os.path.exists(scaler_path):
+            logger.info("Model or scaler files not found, will train new model")
+            return None, None
+            
+        try:
+            model = joblib.load(model_path)
+            scaler = joblib.load(scaler_path)
+            
+            # Verify model and scaler are loaded correctly
+            if model is None or scaler is None:
+                logger.error("Model or scaler loaded but is None")
+                return None, None
+                
+            logger.info("Model and scaler loaded successfully")
+            logger.info(f"Model type: {type(model)}")
+            logger.info(f"Scaler type: {type(scaler)}")
+            return model, scaler
+        except Exception as e:
+            logger.warning(f"Error loading existing model: {str(e)}")
+            logger.info("Will train new model")
+            return None, None
+            
+    except Exception as e:
+        logger.error(f"Error in load_model_and_scaler: {str(e)}")
+        logger.exception("Full traceback:")
+        return None, None
+
+# Initialize model and scaler
+model, scaler = load_model_and_scaler()
+
+# If model is not loaded, train a new one
+if model is None or scaler is None:
+    logger.info("Training new model...")
+    try:
+        metrics = train_model()
+        if metrics is None:
+            raise Exception("Failed to train model")
+        model, scaler = load_model_and_scaler()
+        if model is None or scaler is None:
+            raise Exception("Failed to load model after training")
+        logger.info("New model trained and loaded successfully")
+    except Exception as e:
+        logger.error(f"Error training new model: {str(e)}")
+        logger.exception("Full traceback:")
 
 @app.route('/')
 def home():
@@ -430,4 +425,4 @@ def get_model_metrics():
 if __name__ == '__main__':
     # For local development
     if os.environ.get('VERCEL') is None:
-        app.run(host='127.0.0.1', port=8080, debug=True) 
+        app.run(host='0.0.0.0', port=8080, debug=True) 

@@ -12,9 +12,9 @@ ENV/
 .vscode/
 .idea/
 
-# Model files (uncomment if you want to exclude them)
-# model/*.pkl
-# model/*.json
+# Model files
+model/*.pkl
+model/*.json
 
 # Logs
 *.log
